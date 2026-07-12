@@ -7,7 +7,11 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Task::class, TaskCompletionHistory::class], version = 2, exportSchema = false)
+@Database(
+    entities = [Task::class, TaskCompletionHistory::class, TaskDailyLog::class],
+    version = 3,
+    exportSchema = false
+)
 abstract class DailyTaskDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
 
@@ -22,6 +26,20 @@ abstract class DailyTaskDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `task_daily_log` (" +
+                    "`date` TEXT NOT NULL, " +
+                    "`taskId` INTEGER NOT NULL, " +
+                    "`taskTitle` TEXT NOT NULL, " +
+                    "`isCompleted` INTEGER NOT NULL, " +
+                    "`colorHex` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`date`, `taskId`))"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): DailyTaskDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -29,7 +47,7 @@ abstract class DailyTaskDatabase : RoomDatabase() {
                     DailyTaskDatabase::class.java,
                     "dailytask_database"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 INSTANCE = instance
                 instance

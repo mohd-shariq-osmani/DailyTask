@@ -24,6 +24,7 @@ class TaskRepository(
 
     val allTasks: Flow<List<Task>> = taskDao.getAllTasksFlow()
     val allHistory: Flow<List<TaskCompletionHistory>> = taskDao.getAllHistoryFlow()
+    val allDailyLogs: Flow<List<TaskDailyLog>> = taskDao.getAllDailyLogsFlow()
 
     suspend fun insert(task: Task): Long = withContext(Dispatchers.IO) {
         val maxOrder = taskDao.getMaxDisplayOrder() ?: 0
@@ -43,6 +44,27 @@ class TaskRepository(
         val order2 = task2.displayOrder
         taskDao.updateTask(task1.copy(displayOrder = order2))
         taskDao.updateTask(task2.copy(displayOrder = order1))
+    }
+
+    /**
+     * Fetch the snapshot logs of all tasks for a specific date.
+     * If the requested date is today, returns the live task states mapped dynamically.
+     */
+    suspend fun getTaskLogsForDate(dateStr: String): List<TaskDailyLog> = withContext(Dispatchers.IO) {
+        val todayStr = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        if (dateStr == todayStr) {
+            taskDao.getAllTasks().map { task ->
+                TaskDailyLog(
+                    date = todayStr,
+                    taskId = task.id,
+                    taskTitle = task.title,
+                    isCompleted = task.isCompleted,
+                    colorHex = task.colorHex
+                )
+            }
+        } else {
+            taskDao.getDailyLogsForDate(dateStr)
+        }
     }
 
     /**
@@ -84,6 +106,18 @@ class TaskRepository(
                             )
                         )
 
+                        // Log actual task-by-task snapshots for the last active date
+                        val dailyLogs = currentTasks.map { task ->
+                            TaskDailyLog(
+                                date = lastActiveStr,
+                                taskId = task.id,
+                                taskTitle = task.title,
+                                isCompleted = task.isCompleted,
+                                colorHex = task.colorHex
+                            )
+                        }
+                        taskDao.insertDailyLogs(dailyLogs)
+
                         // 2. Backfill intermediate days where user did not open the app
                         for (i in 1 until daysBetween) {
                             val missedDate = lastActiveDate.plusDays(i)
@@ -96,6 +130,18 @@ class TaskRepository(
                                     totalCount = totalTasksCount
                                 )
                             )
+
+                            // Log missed task-by-task snapshots as incomplete
+                            val missedLogs = currentTasks.map { task ->
+                                TaskDailyLog(
+                                    date = missedDateStr,
+                                    taskId = task.id,
+                                    taskTitle = task.title,
+                                    isCompleted = false,
+                                    colorHex = task.colorHex
+                                )
+                            }
+                            taskDao.insertDailyLogs(missedLogs)
                         }
                     }
                     
@@ -114,5 +160,12 @@ class TaskRepository(
     // For manual resetting/debugging if needed
     suspend fun resetCompletionStates() = withContext(Dispatchers.IO) {
         taskDao.resetAllTasksCompletion()
+    }
+
+    suspend fun clearAllAnalyticsData() = withContext(Dispatchers.IO) {
+        taskDao.deleteAllHistory()
+        taskDao.deleteAllDailyLogs()
+        val todayStr = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        sharedPreferences.edit().putString(KEY_LAST_ACTIVE_DATE, todayStr).apply()
     }
 }

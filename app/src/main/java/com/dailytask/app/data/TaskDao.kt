@@ -41,4 +41,23 @@ interface TaskDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(historyEntry: TaskCompletionHistory)
+
+    // Daily Log queries
+    @Query("SELECT * FROM task_daily_log ORDER BY date ASC")
+    fun getAllDailyLogsFlow(): Flow<List<TaskDailyLog>>
+
+    @Query("SELECT * FROM task_daily_log WHERE date = :date")
+    suspend fun getDailyLogsForDate(date: String): List<TaskDailyLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDailyLogs(logs: List<TaskDailyLog>)
+
+    @Query("DELETE FROM task_daily_log WHERE date = :date")
+    suspend fun deleteDailyLogsForDate(date: String)
+
+    @Query("DELETE FROM task_history")
+    suspend fun deleteAllHistory()
+
+    @Query("DELETE FROM task_daily_log")
+    suspend fun deleteAllDailyLogs()
 }

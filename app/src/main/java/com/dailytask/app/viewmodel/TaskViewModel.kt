@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.dailytask.app.DailyTaskWidgetProvider
 import com.dailytask.app.data.DailyTaskDatabase
 import com.dailytask.app.data.Task
+import com.dailytask.app.data.TaskDailyLog
 import com.dailytask.app.data.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +25,9 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     private var isDraggingList = false
         
     val allHistory = DailyTaskDatabase.getDatabase(application).taskDao().getAllHistoryFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allDailyLogs = DailyTaskDatabase.getDatabase(application).taskDao().getAllDailyLogsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
@@ -93,6 +97,11 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Fetch snapshot task logs for a specific day
+    suspend fun getTaskLogsForDate(dateStr: String): List<TaskDailyLog> {
+        return repository.getTaskLogsForDate(dateStr)
+    }
+
     fun resetDay() {
         viewModelScope.launch {
             repository.resetCompletionStates()
@@ -103,6 +112,13 @@ class TaskViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerDailyCheck() {
         viewModelScope.launch {
             repository.checkAndResetDailyTasks()
+            updateWidget()
+        }
+    }
+
+    fun clearAllAnalyticsData() {
+        viewModelScope.launch {
+            repository.clearAllAnalyticsData()
             updateWidget()
         }
     }
