@@ -15,11 +15,21 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == "refreshWidget") {
-                refreshWidget(this)
-                result.success(null)
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "refreshWidget" -> {
+                    refreshWidget(this)
+                    result.success(null)
+                }
+                "refreshRemindersWidget" -> {
+                    refreshRemindersWidget(this)
+                    result.success(null)
+                }
+                "getWidgetData", "getRemindersData" -> {
+                    result.success(null)
+                }
+                else -> {
+                    result.notImplemented()
+                }
             }
         }
     }
@@ -30,6 +40,16 @@ class MainActivity : FlutterActivity() {
         }
         val appWidgetManager = AppWidgetManager.getInstance(context)
         val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, DailyTaskWidgetProvider::class.java))
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+        context.sendBroadcast(intent)
+    }
+
+    private fun refreshRemindersWidget(context: Context) {
+        val intent = Intent(context, DailyReminderWidgetProvider::class.java).apply {
+            action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        }
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, DailyReminderWidgetProvider::class.java))
         intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
         context.sendBroadcast(intent)
     }
