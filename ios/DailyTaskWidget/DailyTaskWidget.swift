@@ -56,6 +56,17 @@ struct ToggleTaskIntent: AppIntent {
         
         // Reload widgets
         WidgetCenter.shared.reloadAllTimelines()
+        
+        // Post Darwin notification to notify main app process immediately
+        let notificationName = CFNotificationName("com.dailytask.widget.update" as CFString)
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            notificationName,
+            nil,
+            nil,
+            true
+        )
+        
         return .result()
     }
 }
@@ -554,7 +565,7 @@ struct DailyTaskWidget: Widget {
                 DailyTaskWidgetEntryView(entry: entry)
             }
         }
-        .configurationDisplayName("DailyTask Overview")
+        .configurationDisplayName("Daily Tasks")
         .description("Track your checklists and daily consistency instantly from your Home Screen.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()
@@ -630,6 +641,17 @@ struct ToggleReminderIntent: AppIntent {
         }
         
         WidgetCenter.shared.reloadAllTimelines()
+        
+        // Post Darwin notification to notify main app process immediately
+        let notificationName = CFNotificationName("com.dailytask.widget.update" as CFString)
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            notificationName,
+            nil,
+            nil,
+            true
+        )
+        
         return .result()
     }
 }
@@ -892,7 +914,7 @@ struct DailyTaskReminderWidget: Widget {
                 ReminderWidgetEntryView(entry: entry)
             }
         }
-        .configurationDisplayName("DailyTask Reminders")
+        .configurationDisplayName("Reminders")
         .description("Never forget active to-dos and one-off reminders.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
         .contentMarginsDisabled()

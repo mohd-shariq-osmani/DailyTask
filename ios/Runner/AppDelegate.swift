@@ -2,6 +2,8 @@ import Flutter
 import UIKit
 import WidgetKit
 
+private var channelReference: FlutterMethodChannel?
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
@@ -14,6 +16,22 @@ import WidgetKit
     if let controller = window?.rootViewController as? FlutterViewController {
       let channel = FlutterMethodChannel(name: "com.dailytask/widget",
                                         binaryMessenger: controller.binaryMessenger)
+      channelReference = channel
+      
+      // Register Darwin notification observer to receive instant widget updates
+      let center = CFNotificationCenterGetDarwinNotifyCenter()
+      CFNotificationCenterAddObserver(
+          center,
+          nil,
+          { (center, observer, name, object, userInfo) in
+              DispatchQueue.main.async {
+                  channelReference?.invokeMethod("widgetUpdated", arguments: nil)
+              }
+          },
+          "com.dailytask.widget.update" as CFString,
+          nil,
+          .deliverImmediately
+      )
       
       channel.setMethodCallHandler({
         (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in

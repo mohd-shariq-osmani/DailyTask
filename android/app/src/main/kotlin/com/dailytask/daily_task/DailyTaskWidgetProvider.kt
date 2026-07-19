@@ -123,6 +123,9 @@ class DailyTaskWidgetProvider : AppWidgetProvider() {
                     for (id in allWidgetIds) {
                         updateAppWidget(context, appWidgetManager, id)
                     }
+                    
+                    // Also notify the active main app activity (if running)
+                    context.sendBroadcast(Intent("com.dailytask.WIDGET_UPDATE"))
                 }
             }
         }

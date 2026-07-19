@@ -33,6 +33,7 @@
 
         <receiver
             android:name=".DailyTaskWidgetProvider"
+            android:label="Daily Tasks"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -44,6 +45,7 @@
 
         <receiver
             android:name=".DailyReminderWidgetProvider"
+            android:label="Reminders"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

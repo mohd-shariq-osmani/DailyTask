@@ -103,6 +103,9 @@ class DailyReminderWidgetProvider : AppWidgetProvider() {
                     for (id in allWidgetIds) {
                         updateAppWidget(context, appWidgetManager, id)
                     }
+                    
+                    // Also notify the active main app activity (if running)
+                    context.sendBroadcast(Intent("com.dailytask.WIDGET_UPDATE"))
                 }
             }
         }
@@ -127,13 +130,8 @@ class DailyReminderWidgetProvider : AppWidgetProvider() {
                 // 2. Calculate statistics
                 val total = reminders.size
 
-                // 3. Update header and bottom dashboard cards
+                // 3. Update header
                 views.setTextViewText(R.id.widget_count, "$total")
-                views.setTextViewText(R.id.widget_dash_active_count, "$total")
-                views.setTextViewText(
-                    R.id.widget_dash_status_text, 
-                    if (total == 0) "🔥 Clean" else "⚡ Active"
-                )
 
                 // 4. Populate reminder grid (cap at 10 items)
                 val itemsToShow = reminders.take(10)

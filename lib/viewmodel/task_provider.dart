@@ -53,6 +53,12 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
   TaskProvider() {
     WidgetsBinding.instance.addObserver(this);
     _init();
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'widgetUpdated') {
+        debugPrint("Widget updated, reloading data in app...");
+        await loadAllData();
+      }
+    });
   }
 
   @override
