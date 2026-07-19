@@ -587,3 +587,314 @@ extension Color {
         )
     }
 }
+
+// iOS 17+ Background Interactive Toggle Reminder Intent
+@available(iOS 17.0, *)
+struct ToggleReminderIntent: AppIntent {
+    static var title: LocalizedStringResource = "Toggle Reminder"
+    
+    @Parameter(title: "Reminder ID")
+    var reminderId: Int
+
+    init() {}
+    
+    init(reminderId: Int) {
+        self.reminderId = reminderId
+    }
+
+    func perform() async throws -> some IntentResult {
+        let defaults = UserDefaults(suiteName: "group.com.daily.dailyTask")
+        if let jsonString = defaults?.string(forKey: "reminders_data"),
+           let jsonData = jsonString.data(using: .utf8) {
+            do {
+                var data = try JSONDecoder().decode(ReminderWidgetData.self, from: jsonData)
+                if let index = data.reminders.firstIndex(where: { $0.id == reminderId }) {
+                    // Toggle completion
+                    data.reminders[index].isCompleted.toggle()
+                    
+                    // Once completed, it disappears immediately from the list!
+                    if data.reminders[index].isCompleted {
+                        data.reminders.remove(at: index)
+                    }
+                    data.totalCount = data.reminders.count
+                    
+                    let encodedData = try JSONEncoder().encode(data)
+                    if let updatedJsonString = String(data: encodedData, encoding: .utf8) {
+                        defaults?.set(updatedJsonString, forKey: "reminders_data")
+                        defaults?.synchronize()
+                    }
+                }
+            } catch {
+                print("ToggleReminderIntent error: \(error)")
+            }
+        }
+        
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+// Reminder Models
+struct ReminderWidgetTask: Codable, Identifiable {
+    var id: Int
+    var title: String
+    var isCompleted: Bool
+    var colorHex: String
+}
+
+struct ReminderWidgetData: Codable {
+    var reminders: [ReminderWidgetTask]
+    var totalCount: Int
+}
+
+struct ReminderEntry: TimelineEntry {
+    let date: Date
+    let data: ReminderWidgetData
+}
+
+struct ReminderProvider: TimelineProvider {
+    func placeholder(in context: Context) -> ReminderEntry {
+        ReminderEntry(date: Date(), data: getPreviewData())
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (ReminderEntry) -> ()) {
+        let entry = ReminderEntry(date: Date(), data: getWidgetData())
+        completion(entry)
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ReminderEntry>) -> ()) {
+        let entry = ReminderEntry(date: Date(), data: getWidgetData())
+        let timeline = Timeline(entries: [entry], policy: .atEnd)
+        completion(timeline)
+    }
+    
+    private func getWidgetData() -> ReminderWidgetData {
+        let defaults = UserDefaults(suiteName: "group.com.daily.dailyTask")
+        if let jsonString = defaults?.string(forKey: "reminders_data"),
+           let jsonData = jsonString.data(using: .utf8) {
+            do {
+                return try JSONDecoder().decode(ReminderWidgetData.self, from: jsonData)
+            } catch {
+                print("Error decoding reminders widget data: \(error)")
+            }
+        }
+        return getPreviewData()
+    }
+    
+    private func getPreviewData() -> ReminderWidgetData {
+        let previewReminders = [
+            ReminderWidgetTask(id: 101, title: "Buy groceries", isCompleted: false, colorHex: "#38BDF8"),
+            ReminderWidgetTask(id: 102, title: "Call mechanic", isCompleted: false, colorHex: "#8B5CF6"),
+            ReminderWidgetTask(id: 103, title: "Pay utility bill", isCompleted: false, colorHex: "#FBBF24")
+        ]
+        return ReminderWidgetData(
+            reminders: previewReminders,
+            totalCount: 3
+        )
+    }
+}
+
+struct ReminderWidgetEntryView : View {
+    var entry: ReminderProvider.Entry
+    @Environment(\.widgetFamily) var family
+
+    var body: some View {
+        switch family {
+        case .systemSmall:
+            buildSmallWidget()
+        case .systemMedium:
+            buildMediumWidget()
+        case .systemLarge:
+            buildLargeWidget()
+        default:
+            buildMediumWidget()
+        }
+    }
+
+    // Small Widget
+    @ViewBuilder
+    private func buildSmallWidget() -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 3) {
+                Image(systemName: "bell.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: "#8B5CF6"))
+                Text("Reminders")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+            }
+            .padding(.top, 4)
+
+            Spacer()
+
+            Text("\(entry.data.totalCount)")
+                .font(.system(size: 32, weight: .black))
+                .foregroundColor(Color(hex: "#8B5CF6"))
+
+            Text("active")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(Color(hex: "#6B7280"))
+
+            Spacer()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(hex: "#0C0C12"))
+    }
+
+    // Medium Widget
+    @ViewBuilder
+    private func buildMediumWidget() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(hex: "#1A1A28"))
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("Reminders")
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundColor(.white)
+                    Text("\(entry.data.totalCount) remaining")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: "#8B5CF6"))
+                }
+            }
+            
+            // Checklist list (up to 4 items in a vertical list)
+            VStack(alignment: .leading, spacing: 5) {
+                if entry.data.reminders.isEmpty {
+                    Text("No active reminders 🎉")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(hex: "#6B7280"))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 10)
+                } else {
+                    ForEach(entry.data.reminders.prefix(4)) { reminder in
+                        buildReminderRow(reminder)
+                    }
+                }
+            }
+            .padding(.top, 4)
+
+            Spacer()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(hex: "#0C0C12"))
+    }
+
+    // Large Widget
+    @ViewBuilder
+    private func buildLargeWidget() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(Color(hex: "#8B5CF6"))
+                    Text("My Reminders")
+                        .font(.system(size: 16, weight: .black))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                
+                Text("\(entry.data.totalCount) ACTIVE")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: "#A78BFA"))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "#0D0D11"))
+                    .cornerRadius(8)
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                if entry.data.reminders.isEmpty {
+                    Spacer()
+                    Text("All caught up! 🎉")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color(hex: "#6B7280"))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Spacer()
+                } else {
+                    ForEach(entry.data.reminders.prefix(7)) { reminder in
+                        buildReminderRow(reminder)
+                    }
+                }
+            }
+            Spacer()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(hex: "#0C0C12"))
+    }
+
+    @ViewBuilder
+    private func buildReminderRow(_ reminder: ReminderWidgetTask) -> some View {
+        if #available(iOS 17.0, *) {
+            Button(intent: ToggleReminderIntent(reminderId: reminder.id)) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: reminder.colorHex))
+                        .frame(width: 6, height: 6)
+                        .opacity(reminder.isCompleted ? 0.35 : 1.0)
+                    
+                    Text(reminder.title)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color(hex: "#0D0D11"))
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+        } else {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color(hex: reminder.colorHex))
+                    .frame(width: 6, height: 6)
+                
+                Text(reminder.title)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Color(hex: "#0D0D11"))
+            .cornerRadius(8)
+        }
+    }
+}
+
+struct DailyTaskReminderWidget: Widget {
+    let kind: String = "DailyTaskReminderWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: ReminderProvider()) { entry in
+            if #available(iOS 17.0, *) {
+                ReminderWidgetEntryView(entry: entry)
+                    .containerBackground(Color(hex: "#0C0C12"), for: .widget)
+            } else {
+                ReminderWidgetEntryView(entry: entry)
+            }
+        }
+        .configurationDisplayName("DailyTask Reminders")
+        .description("Never forget active to-dos and one-off reminders.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
+    }
+}

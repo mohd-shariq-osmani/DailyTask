@@ -31,6 +31,20 @@ import WidgetKit
           let defaults = UserDefaults(suiteName: "group.com.daily.dailyTask")
           let jsonString = defaults?.string(forKey: "widget_data")
           result(jsonString)
+        } else if call.method == "refreshRemindersWidget" {
+          if let jsonString = call.arguments as? String {
+              let defaults = UserDefaults(suiteName: "group.com.daily.dailyTask")
+              defaults?.set(jsonString, forKey: "reminders_data")
+              defaults?.synchronize()
+          }
+          if #available(iOS 14.0, *) {
+              WidgetCenter.shared.reloadAllTimelines()
+          }
+          result(nil)
+        } else if call.method == "getRemindersData" {
+          let defaults = UserDefaults(suiteName: "group.com.daily.dailyTask")
+          let jsonString = defaults?.string(forKey: "reminders_data")
+          result(jsonString)
         } else {
           result(FlutterMethodNotImplemented)
         }

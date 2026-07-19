@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'task.dart';
 import 'task_completion_history.dart';
 import 'task_daily_log.dart';
+import 'reminder.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -23,8 +24,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
@@ -61,6 +63,29 @@ class DatabaseHelper {
         PRIMARY KEY (date, taskId)
       )
     ''');
+
+    // 4. Create Reminders table
+    await db.execute('''
+      CREATE TABLE reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        isCompleted INTEGER NOT NULL DEFAULT 0,
+        colorHex TEXT NOT NULL DEFAULT '#8B5CF6'
+      )
+    ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE reminders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          isCompleted INTEGER NOT NULL DEFAULT 0,
+          colorHex TEXT NOT NULL DEFAULT '#8B5CF6'
+        )
+      ''');
+    }
   }
 
   // ── Tasks CRUD ──
@@ -161,6 +186,48 @@ class DatabaseHelper {
   Future<int> deleteAllDailyLogs() async {
     final db = await database;
     return await db.delete('task_daily_log');
+  }
+
+  // ── Reminders CRUD ──
+  Future<List<Reminder>> getActiveReminders() async {
+    final db = await database;
+    final result = await db.query(
+      'reminders',
+      where: 'isCompleted = ?',
+      whereArgs: [0],
+      orderBy: 'id DESC',
+    );
+    return result.map((map) => Reminder.fromMap(map)).toList();
+  }
+
+  Future<List<String>> getReminderSuggestions() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT DISTINCT title FROM reminders');
+    return result.map((row) => row['title'] as String).toList();
+  }
+
+  Future<int> insertReminder(Reminder reminder) async {
+    final db = await database;
+    return await db.insert('reminders', reminder.toMap());
+  }
+
+  Future<int> updateReminder(Reminder reminder) async {
+    final db = await database;
+    return await db.update(
+      'reminders',
+      reminder.toMap(),
+      where: 'id = ?',
+      whereArgs: [reminder.id],
+    );
+  }
+
+  Future<int> deleteReminder(int id) async {
+    final db = await database;
+    return await db.delete(
+      'reminders',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future close() async {

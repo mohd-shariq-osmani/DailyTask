@@ -4,6 +4,7 @@ import 'database_helper.dart';
 import 'task.dart';
 import 'task_completion_history.dart';
 import 'task_daily_log.dart';
+import 'reminder.dart';
 
 class TaskRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
@@ -16,6 +17,13 @@ class TaskRepository {
   Future<int> deleteTask(int id) => _dbHelper.deleteTask(id);
   Future<List<TaskCompletionHistory>> getHistory() => _dbHelper.getAllHistory();
   Future<List<TaskDailyLog>> getDailyLogs() => _dbHelper.getAllDailyLogs();
+
+  // ── Reminders Delegations ──
+  Future<List<Reminder>> getActiveReminders() => _dbHelper.getActiveReminders();
+  Future<List<String>> getReminderSuggestions() => _dbHelper.getReminderSuggestions();
+  Future<int> insertReminder(Reminder reminder) => _dbHelper.insertReminder(reminder);
+  Future<int> updateReminder(Reminder reminder) => _dbHelper.updateReminder(reminder);
+  Future<int> deleteReminder(int id) => _dbHelper.deleteReminder(id);
 
   // ── custom date logs lookup ──
   Future<List<TaskDailyLog>> getTaskLogsForDate(String dateStr) async {

@@ -5,5 +5,6 @@ import SwiftUI
 struct DailyTaskWidgetBundle: WidgetBundle {
     var body: some Widget {
         DailyTaskWidget()
+        DailyTaskReminderWidget()
     }
 }

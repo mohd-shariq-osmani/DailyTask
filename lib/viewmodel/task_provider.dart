@@ -5,6 +5,7 @@ import '../data/task.dart';
 import '../data/task_completion_history.dart';
 import '../data/task_daily_log.dart';
 import '../data/task_repository.dart';
+import '../data/reminder.dart';
 
 class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
   final TaskRepository _repository = TaskRepository();
@@ -38,10 +39,14 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<Task> _tasks = [];
   List<TaskCompletionHistory> _history = [];
   List<TaskDailyLog> _dailyLogs = [];
+  List<Reminder> _reminders = [];
+  List<String> _suggestions = [];
 
   List<Task> get tasks => _tasks;
   List<TaskCompletionHistory> get history => _history;
   List<TaskDailyLog> get dailyLogs => _dailyLogs;
+  List<Reminder> get reminders => _reminders;
+  List<String> get suggestions => _suggestions;
 
   bool _isDragging = false;
 
@@ -63,8 +68,30 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _refreshRemindersWidget() async {
+    try {
+      final remindersListMap = _reminders.map((r) => {
+        'id': r.id ?? 0,
+        'title': r.title,
+        'isCompleted': r.isCompleted,
+        'colorHex': r.colorHex,
+      }).toList();
+
+      final widgetData = {
+        'reminders': remindersListMap,
+        'totalCount': _reminders.length,
+      };
+      
+      final jsonString = jsonEncode(widgetData);
+      await _channel.invokeMethod('refreshRemindersWidget', jsonString);
+    } catch (e) {
+      debugPrint("Error refreshing reminders widget: $e");
+    }
+  }
+
   Future<void> syncWidgetDataWithLocalDatabase() async {
     try {
+      // 1. Sync Tasks
       final String? jsonString = await _channel.invokeMethod('getWidgetData');
       if (jsonString != null && jsonString.isNotEmpty) {
         final Map<String, dynamic> decoded = jsonDecode(jsonString);
@@ -91,7 +118,35 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      debugPrint("Error syncing widget data: $e");
+      debugPrint("Error syncing task widget data: $e");
+    }
+
+    try {
+      // 2. Sync Reminders
+      final String? remindersJson = await _channel.invokeMethod('getRemindersData');
+      if (remindersJson != null && remindersJson.isNotEmpty) {
+        final Map<String, dynamic> decoded = jsonDecode(remindersJson);
+        if (decoded.containsKey('reminders')) {
+          final List<dynamic> widgetReminders = decoded['reminders'];
+          bool dbUpdated = false;
+          
+          for (var localReminder in _reminders) {
+            final int id = localReminder.id ?? 0;
+            final inWidget = widgetReminders.any((wr) => wr['id'] == id);
+            if (!inWidget) {
+              // Toggled completed and removed in widget!
+              final updated = localReminder.copyWith(isCompleted: true);
+              await _repository.updateReminder(updated);
+              dbUpdated = true;
+            }
+          }
+          if (dbUpdated) {
+            await loadAllData();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error syncing reminders widget data: $e");
     }
   }
 
@@ -106,8 +161,14 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     _history = await _repository.getHistory();
     _dailyLogs = await _repository.getDailyLogs();
+    
+    // Load reminders and suggestions
+    _reminders = await _repository.getActiveReminders();
+    _suggestions = await _repository.getReminderSuggestions();
+
     notifyListeners();
     _refreshWidget();
+    _refreshRemindersWidget();
   }
 
   Future<void> addTask(String title, String colorHex) async {
@@ -157,6 +218,24 @@ class TaskProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> clearAllAnalytics() async {
     await _repository.clearAllAnalyticsData();
+    await loadAllData();
+  }
+
+  // ── Reminders CRUD ──
+  Future<void> addReminder(String title, String colorHex) async {
+    final newReminder = Reminder(title: title, colorHex: colorHex);
+    await _repository.insertReminder(newReminder);
+    await loadAllData();
+  }
+
+  Future<void> toggleReminder(Reminder reminder) async {
+    final updated = reminder.copyWith(isCompleted: !reminder.isCompleted);
+    await _repository.updateReminder(updated);
+    await loadAllData();
+  }
+
+  Future<void> deleteReminder(int id) async {
+    await _repository.deleteReminder(id);
     await loadAllData();
   }
 
