@@ -1,8 +1,34 @@
-# DailyTask (Flutter Remake)
+# DailyTask
 
-DailyTask is a premium, cinematic dark-themed checklist tracking and habit analytics application built in Flutter. It is designed to run seamlessly across Android, iOS, Web, and Desktop platforms, and supports interactive widgets with live state synchronization.
+DailyTask is a distraction-free, offline-first daily checklist and habit analytics application built with Flutter. It features a dark-themed UI designed for managing recurring routines, backed by interactive home screen widgets and detailed completion statistics.
+
+Unlike traditional task managers that focus on long-term project planning, DailyTask is optimized for **daily consistency**. It provides an immediate cockpit of your daily routines, helping you build habits without clutter.
 
 ---
+
+## ✨ Features
+
+- **Daily Routine Cockpit**: An easy-to-use checklist that automatically resets at midnight. Features a custom neon palette for tasks, swipe-to-delete, completion sorting, and drag-and-drop manual reordering.
+- **Interactive Home Screen Widgets**: Complete support for interactive widgets on iOS (SwiftUI App Intents) and Android (AppWidgets). Toggle items directly from your home screen and watch the app state synchronize instantly using lightweight IPC (Darwin Notifications on iOS, Broadcast Receivers on Android).
+- **GitHub-Style Contribution Heatmap**: A visual calendar mapping your consistency over the last 13 weeks. The grid is color-graded from dark gray up to glowing violet based on completion rates.
+- **Custom-Painted Trend Charts**: Interactive analytics charts built using Flutter's `CustomPainter` to plot performance progress over weeks and months, with interactive tooltips and guidelines.
+- **Task-Wise Consistency Breakdown**: High-fidelity insights showing overall success rates, streaks (current vs. all-time high), and your most consistent workdays for each specific habit.
+- **Offline-First Database**: Runs completely offline using SQLite (`sqflite`). If the app isn't opened for several days, it automatically backfills empty days in history logs to ensure analytics are accurate.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+- **Framework**: Flutter (Dart)
+- **Local Database**: SQLite (`sqflite`) for structured local persistence.
+- **State Management**: Provider (`ChangeNotifier` architecture)
+- **Custom UI Components**: Built from scratch using Flutter `CustomPainter` (charts and grids) to achieve custom styling.
+- **Native Integrations**:
+  - **Android**: Kotlin-based AppWidget implementation and dynamic local Broadcast receivers.
+  - **iOS**: Swift-based WidgetKit extensions, App Intents, App Groups shared containers, and Darwin Notification Center API for IPC.
+
+---
+
 
 ## 🚀 Prerequisites
 
